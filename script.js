@@ -1,17 +1,22 @@
+const screens = document.querySelectorAll(".screen");
+
 const startScreen = document.getElementById("startScreen");
 const storyScreen = document.getElementById("storyScreen");
 const gameScreen = document.getElementById("gameScreen");
 const gameOverScreen = document.getElementById("gameOverScreen");
+const phaseText = document.getElementById("phaseText");
 
 const startBtn = document.getElementById("startBtn");
 const nextStoryBtn = document.getElementById("nextStoryBtn");
 const retryBtn = document.getElementById("retryBtn");
 
-const moles = document.querySelectorAll(".mole");
+const moles = gameScreen.querySelectorAll(".mole");
 
 const scoreValue = document.getElementById("scoreValue");
 const comboValue = document.getElementById("comboValue");
+const timerValue = document.getElementById("timerValue");
 const timerBar = document.getElementById("timerBar");
+const finalScore = document.querySelector(".score-values h2");
 
 const storyTitle = document.getElementById("storyTitle");
 const storyText = document.getElementById("storyText");
@@ -19,89 +24,92 @@ const storyText = document.getElementById("storyText");
 let score = 0;
 let combo = 0;
 let time = 100;
-
+let timer = null;
+const maxTime = 100;
+let lives = 3;
+let moleInterval = null;
+let phase = 1;
+let spawnSpeed = 1100;
+let activeMole = null;
+let lostLifeThisPhase = false;
 
 const critterTypes = {
     mole: {
         name: "Mole",
+        score: 10,
+        penalty: 0,
         hitsToKill: 1,
         timeEffect: 1,      
         isHazard: false,
-        image: "mole.png"
+        resetsCombo: false,
+        emoji: "🐹"
     },
     rabbit: {
         name: "Rabbit",
+        score: 15,
+        penalty: 0,
         hitsToKill: 1,
         timeEffect: 2,      
         isHazard: false,
-        image: "phase1.png"  
+        resetsCombo: false,
+        emoji: "🐰"
     },
     robot: {
         name: "Robot",
-        hitsToKill: 3,     
-        timeEffect: 3,      
+        score: 25,
+        penalty: 0,
+        hitsToKill: 3,
         isHazard: false,
-        image: "phase2.png"   
+        resetsCombo: false,
+        emoji: "🤖"
     },
     trickster: {
         name: "Trickster",
+        score: 0,
+        penalty: 1,
         hitsToKill: 1,
         timeEffect: -3,    
         isHazard: true,
-        image: "phase3.png"  
+        resetsCombo: true,
+        emoji: "🦊"
     },
     bomb: {
         name: "Bomb",
+        score: 0,
+        penalty: 1,
         hitsToKill: 1,
         timeEffect: -5,      
         resetsCombo: true,   
         isHazard: true,
-        image: "phase4.png"   
+        resetsCombo: true,
+        emoji: "💣"
     }
 };
 
 const gamePhases = {
-    phase1: {
-        name: "Calm Start",
-        spawnSpeed: 1500,     
-        maxEnemies: 3,
-        enemyPool: ["mole"],  
-        background: "phase1.png"
+    1: {
+        label: "PHASE 1 - MEADOW",
+        className: "phase-meadow",
+        spawnSpeed: 1100,
+        enemyPool: ["mole"]
     },
-    phase2: {
-        name: "Getting Busy",
-        spawnSpeed: 1200,
-        maxEnemies: 4,
-        enemyPool: ["mole", "rabbit"],
-        background: "phase2.png"
+    2: {
+        label: "PHASE 2 - DESERT",
+        className: "phase-desert",
+        spawnSpeed: 950,
+        enemyPool: ["mole", "rabbit"]
     },
-    phase3: {
-        name: "Robot Influx", 
-        spawnSpeed: 1000,
-        maxEnemies: 5,
-        enemyPool: ["mole", "rabbit", "robot"],
-        background: "phase3.png"
+    3: {
+        label: "PHASE 3 - SNOW",
+        className: "phase-snow",
+        spawnSpeed: 850,
+        enemyPool: ["mole", "rabbit", "robot"]
     },
-    phase4: {
-        name: "Tricky Business",
-        spawnSpeed: 800,
-        maxEnemies: 6,
-        enemyPool: ["mole", "robot", "trickster"],
-        background: "phase4.png"
-    },
-    phase5: {
-        name: "Bomb Defusal",
-        spawnSpeed: 600,
-        maxEnemies: 7,
-        enemyPool: ["mole", "robot", "trickster", "bomb"],
-        background: "phase5.png" 
-    },
-    phase6: {
-        name: "Insane Mode",
-        spawnSpeed: 400,      // Crazy fast spawning
-        maxEnemies: 9,
-        enemyPool: ["rabbit", "robot", "trickster", "bomb"],
-        background: "phase6.png"
+    4: {
+        label: "PHASE 4 - SPACE",
+        className: "phase-space",
+        spawnSpeed: 750,
+        enemyPool: ["mole", "robot", "trickster", "bomb"]
     }
 };
 
@@ -136,26 +144,83 @@ const stories = [
     {
         image: "story6.png",
         title: "Global Crisis",
-        text: "The cloned mole swarm has escaped containment… and is now spreading across the world."
+        text: "The cloned mole swarm has escaped containment... and is now spreading across the world."
     }
 ];
 
 let currentStory = 0;
 
+function showScreen(screenToShow) {
+    screens.forEach(screen => {
+        screen.style.display = "none";
+    });
+
+    screenToShow.style.display = "flex";
+}
+
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
+function updateStory() {
+    storyScreen.style.backgroundImage = `url("${stories[currentStory].image}")`;
+    storyTitle.textContent = stories[currentStory].title;
+    storyText.textContent = stories[currentStory].text;
+}
+
+function applyPhaseSettings() {
+    const currentPhase = gamePhases[phase];
+
+    gameScreen.classList.remove("phase-meadow", "phase-desert", "phase-snow", "phase-space");
+    gameScreen.classList.add(currentPhase.className);
+    phaseText.textContent = currentPhase.label;
+    spawnSpeed = currentPhase.spawnSpeed;
+}
+
+function updatePhase() {
+    let newPhase = 1;
+
+    if (score >= 200) newPhase = 4;
+    else if (score >= 100) newPhase = 3;
+    else if (score >= 50) newPhase = 2;
+
+    if (newPhase === phase) return;
+
+    if (!lostLifeThisPhase) {
+        lives = Math.min(3, lives + 1);
+    }
+
+    lostLifeThisPhase = false;
+    phase = newPhase;
+    applyPhaseSettings();
+
+    clearInterval(moleInterval);
+    randomMole();
+    moleInterval = setInterval(randomMole, spawnSpeed);
+
+    console.log("Phase:", phase, "Lives:", lives);
+}
+
+function pickRandom(list) {
+    return list[Math.floor(Math.random() * list.length)];
+}
+
 startBtn.onclick = () => {
-    startScreen.style.display = "none";
-    storyScreen.style.display = "flex";
+    showScreen(storyScreen);
     updateStory();
 };
 
 /* NEXT STORY */
 nextStoryBtn.onclick = () => {
     currentStory++;
-    if(currentStory < stories.length){
+
+    if (currentStory < stories.length) {
         updateStory();
     } else {
-        storyScreen.style.display = "none";
-        gameScreen.style.display = "flex";
+        resetGame();
+        showScreen(gameScreen);
         startGame();
     }
 };
@@ -164,51 +229,126 @@ retryBtn.onclick = () => {
     gameOverScreen.style.display = "none";
     gameScreen.style.display = "flex";
     resetGame();
+    showScreen(gameScreen);
+    startGame();
 };
-
-function updateStory(){
-    storyScreen.style.backgroundImage = `url("${stories[currentStory].image}")`;
-    storyTitle.textContent = stories[currentStory].title;
-    storyText.textContent = stories[currentStory].text;
-}
 
 moles.forEach(mole => {
     mole.addEventListener("click", () => {
-        if (mole.classList.contains("active")) {
-            mole.classList.remove("active");
-            mole.classList.add("matched");
-
-            score += 10;
-            combo++;
-
-            scoreValue.textContent = score;
-            comboValue.textContent = combo;
-
-            setTimeout(() => {
-                mole.classList.remove("matched");
-            }, 400);
+        if (mole !== activeMole || !mole.classList.contains("active")) {
+            if (!mole.classList.contains("matched")) {
+                combo = 0;
+                comboValue.textContent = combo;
+                console.log("Miss Click!");
+            }
+            return;
         }
+
+        const critter = critterTypes[mole.dataset.type];
+        const hitsLeft = Number(mole.dataset.hitsLeft) - 1;
+        mole.dataset.hitsLeft = String(hitsLeft);
+
+        mole.classList.add("matched");
+        setTimeout(() => {
+            mole.classList.remove("matched");
+        }, 150);
+
+        if (hitsLeft > 0) {
+            console.log(`${critter.name} hit, ${hitsLeft} left`);
+            return;
+        }
+
+        mole.classList.remove("active");
+        mole.dataset.missed = "false";
+        clearTimeout(mole._timeout);
+        activeMole = null;
+
+        score += critter.score;
+
+        if (critter.isHazard) {
+            lives -= critter.penalty;
+            lostLifeThisPhase = true;
+            combo = 0;
+        } else {
+            combo++;
+        }
+
+        if (critter.resetsCombo) {
+            combo = 0;
+        }
+
+        scoreValue.textContent = score;
+        comboValue.textContent = combo;
+
+        if (lives <= 0) {
+            gameOver();
+            return;
+        }
+
+        updatePhase();
+
+        console.log("Hit:", critter.name);
     });
 });
 
 /* SPAWN MOLES */
 function randomMole() {
-    moles.forEach(m => m.classList.remove("active"));
-    const index = Math.floor(Math.random() * moles.length);
-    moles[index].classList.add("active", "shuffling");
+    moles.forEach(m => {
+        m.classList.remove("active");
+        m.classList.remove("matched");
+        m.dataset.missed = "true";
+        clearTimeout(m._timeout);
+    });
 
-    setTimeout(() => {
-        moles[index].classList.remove("shuffling");
-    }, 500);
+    const mole = pickRandom([...moles]);
+    const critterKey = pickRandom(gamePhases[phase].enemyPool);
+    const critter = critterTypes[critterKey];
+
+    activeMole = mole;
+    mole.dataset.type = critterKey;
+    mole.dataset.hitsLeft = String(critter.hitsToKill);
+    mole.dataset.missed = "true";
+    mole.textContent = critter.emoji;
+    mole.classList.add("active");
+
+    mole._timeout = setTimeout(() => {
+        if (mole === activeMole && mole.classList.contains("active") && mole.dataset.missed === "true") {
+            mole.classList.remove("active");
+            activeMole = null;
+
+            lives--;
+            lostLifeThisPhase = true;
+            combo = 0;
+            comboValue.textContent = combo;
+
+            console.log("Missed. Lives:", lives);
+
+            if (lives <= 0) {
+                gameOver();
+            }
+        }
+    }, Math.max(300, spawnSpeed - 50));
 }
 
-/* GAME LOOP */
 function startGame() {
-    setInterval(randomMole, 800);
+    clearInterval(moleInterval);
+    clearInterval(timer);
 
-    let timer = setInterval(() => {
+    applyPhaseSettings();
+
+    timerBar.classList.remove("warning");
+    timerBar.style.width = "100%";
+    timerValue.textContent = formatTime(time);
+
+    randomMole();
+    moleInterval = setInterval(randomMole, spawnSpeed);
+
+    timer = setInterval(() => {
         time--;
-        timerBar.style.width = time + "%";
+
+        const timePercent = Math.max(0, (time / maxTime) * 100);
+        timerBar.style.width = `${timePercent}%`;
+        timerValue.textContent = formatTime(Math.max(0, time));
 
         if (time < 30) {
             timerBar.classList.add("warning");
@@ -218,22 +358,53 @@ function startGame() {
             clearInterval(timer);
             gameOver();
         }
-    }, 500);
+    }, 1000);
 }
 
 /* GAME OVER */
 function gameOver() {
-    gameScreen.style.display = "none";
-    gameOverScreen.style.display = "flex";
+    clearInterval(moleInterval);
+    clearInterval(timer);
+
+    moles.forEach(m => {
+        clearTimeout(m._timeout);
+        m.classList.remove("active");
+    });
+
+    activeMole = null;
+    finalScore.textContent = `Score: ${score}`;
+
+    showScreen(gameOverScreen);
 }
 
 /* RESET */
 function resetGame() {
+    clearInterval(moleInterval);
+    clearInterval(timer);
+
     score = 0;
     combo = 0;
     time = 100;
+    lives = 3;
+    phase = 1;
+    activeMole = null;
+    lostLifeThisPhase = false;
+    currentStory = 0;
 
-    scoreValue.textContent = 0;
-    comboValue.textContent = 0;
+    applyPhaseSettings();
+
+    scoreValue.textContent = "0";
+    comboValue.textContent = "0";
     timerBar.style.width = "100%";
+    timerBar.classList.remove("warning");
+    timerValue.textContent = formatTime(time);
+    finalScore.textContent = "Score: 0";
+
+    moles.forEach(m => {
+        clearTimeout(m._timeout);
+        m.classList.remove("active");
+        m.classList.remove("matched");
+        m.dataset.missed = "true";
+        m.textContent = "🐹";
+    });
 }
