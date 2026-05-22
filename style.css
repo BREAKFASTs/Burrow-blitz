@@ -225,6 +225,19 @@ body {
     display: grid;
     grid-template-columns: repeat(5, 140px);
     gap: 50px;
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+    padding: 40px;
+    border-radius: 20px;
+}
+
+.grid::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.25);
+    z-index: -1;
+    border-radius: inherit;
 }
 
 .hole-meadow {
@@ -264,6 +277,7 @@ body {
     box-shadow:
         inset 0 4px 8px rgba(255,255,255,0.15),
         inset 0 -6px 10px rgba(0,0,0,0.4);
+
 }
 
 .hole-desert {
