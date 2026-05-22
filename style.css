@@ -323,19 +323,14 @@ body {
         inset 0 -6px 10px rgba(0,0,0,0.4);
 }
 
-.mole {
-    width: 90px;
-    height: 90px;
-    bottom: -15px;
-    transform: translateX(-50%) translateY(100%);
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 55px;
-    cursor: pointer;
+.mole img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* Keeps the moles from looking stretched */
+    display: block;
+    user-select: none;
+    -webkit-user-drag: none; /* Prevents dragging the image instead of clicking it */
 }
-
 /* ========================= */
 /* ANIMATIONS (MEMBER 4) */
 /* ========================= */

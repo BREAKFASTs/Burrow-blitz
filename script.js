@@ -35,54 +35,54 @@ let lostLifeThisPhase = false;
 
 const critterTypes = {
     mole: {
-        name: "Mole",
+        name: "Tiny Mole",
         score: 10,
         penalty: 0,
         hitsToKill: 1,
         timeEffect: 1,      
         isHazard: false,
         resetsCombo: false,
-        emoji: "🐹"
+        image: "mole-removebg-preview.png" // Updated filename
     },
-    rabbit: {
-        name: "Rabbit",
+    speed: {
+        name: "Speed Mole",
         score: 15,
         penalty: 0,
         hitsToKill: 1,
         timeEffect: 2,      
         isHazard: false,
         resetsCombo: false,
-        emoji: "🐰"
+        image: "speedmole-removebg-preview.png" // Updated filename
     },
-    robot: {
-        name: "Robot",
+    mecha: {
+        name: "Mecha Mole",
         score: 25,
         penalty: 0,
         hitsToKill: 3,
+        timeEffect: 3,
         isHazard: false,
         resetsCombo: false,
-        emoji: "🤖"
+        image: "mechamole-removebg-preview.png" // Updated filename
     },
-    trickster: {
-        name: "Trickster",
+    trick: {
+        name: "Trick Mole",
         score: 0,
         penalty: 1,
         hitsToKill: 1,
         timeEffect: -3,    
         isHazard: true,
         resetsCombo: true,
-        emoji: "🦊"
+        image: "trickmole-removebg-preview.png" // Updated filename
     },
     bomb: {
-        name: "Bomb",
+        name: "Boom Mole",
         score: 0,
         penalty: 1,
         hitsToKill: 1,
-        timeEffect: -5,      
-        resetsCombo: true,   
+        timeEffect: -5,    
         isHazard: true,
         resetsCombo: true,
-        emoji: "💣"
+        image: "boommole-removebg-preview.png" // Updated filename
     }
 };
 
@@ -97,19 +97,19 @@ const gamePhases = {
         label: "PHASE 2 - DESERT",
         className: "phase-desert",
         spawnSpeed: 950,
-        enemyPool: ["mole", "rabbit"]
+        enemyPool: ["mole", "speed"]
     },
     3: {
         label: "PHASE 3 - SNOW",
         className: "phase-snow",
         spawnSpeed: 850,
-        enemyPool: ["mole", "rabbit", "robot"]
+        enemyPool: ["mole", "speed", "mecha"]
     },
     4: {
         label: "PHASE 4 - SPACE",
         className: "phase-space",
         spawnSpeed: 750,
-        enemyPool: ["mole", "robot", "trickster", "bomb"]
+        enemyPool: ["mole", "mecha", "trick", "bomb"]
     }
 };
 
@@ -154,7 +154,6 @@ function showScreen(screenToShow) {
     screens.forEach(screen => {
         screen.style.display = "none";
     });
-
     screenToShow.style.display = "flex";
 }
 
@@ -172,7 +171,6 @@ function updateStory() {
 
 function applyPhaseSettings() {
     const currentPhase = gamePhases[phase];
-
     gameScreen.classList.remove("phase-meadow", "phase-desert", "phase-snow", "phase-space");
     gameScreen.classList.add(currentPhase.className);
     phaseText.textContent = currentPhase.label;
@@ -215,7 +213,6 @@ startBtn.onclick = () => {
 /* NEXT STORY */
 nextStoryBtn.onclick = () => {
     currentStory++;
-
     if (currentStory < stories.length) {
         updateStory();
     } else {
@@ -264,6 +261,11 @@ moles.forEach(mole => {
         activeMole = null;
 
         score += critter.score;
+        
+        // Dynamically adjust operational time budget based on asset specific profiles
+        if (critter.timeEffect) {
+            time = Math.min(maxTime, time + critter.timeEffect);
+        }
 
         if (critter.isHazard) {
             lives -= critter.penalty;
@@ -286,7 +288,6 @@ moles.forEach(mole => {
         }
 
         updatePhase();
-
         console.log("Hit:", critter.name);
     });
 });
@@ -297,6 +298,7 @@ function randomMole() {
         m.classList.remove("active");
         m.classList.remove("matched");
         m.dataset.missed = "true";
+        m.innerHTML = ""; // Clear existing image tags
         clearTimeout(m._timeout);
     });
 
@@ -308,7 +310,16 @@ function randomMole() {
     mole.dataset.type = critterKey;
     mole.dataset.hitsLeft = String(critter.hitsToKill);
     mole.dataset.missed = "true";
-    mole.textContent = critter.emoji;
+    
+    // Create and insert an image node instead of standard plain-text strings
+    const imgElement = document.createElement("img");
+    imgElement.src = critter.image;
+    imgElement.alt = critter.name;
+    imgElement.style.width = "100%";
+    imgElement.style.height = "100%";
+    imgElement.style.pointerEvents = "none"; // Stop image blocking clicks reaching container
+    
+    mole.appendChild(imgElement);
     mole.classList.add("active");
 
     mole._timeout = setTimeout(() => {
@@ -369,6 +380,7 @@ function gameOver() {
     moles.forEach(m => {
         clearTimeout(m._timeout);
         m.classList.remove("active");
+        m.innerHTML = ""; 
     });
 
     activeMole = null;
@@ -405,6 +417,6 @@ function resetGame() {
         m.classList.remove("active");
         m.classList.remove("matched");
         m.dataset.missed = "true";
-        m.textContent = "🐹";
+        m.innerHTML = ""; 
     });
 }
